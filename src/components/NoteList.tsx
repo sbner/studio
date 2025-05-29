@@ -8,12 +8,13 @@ import { Button } from "./ui/button";
 
 interface NoteListProps {
   notes: Note[];
-  onEdit: (note: Note) => void;
+  onEdit: (note: Note, cardRect: DOMRect) => void;
   onDelete: (noteId: string) => void;
   onNewNoteClick: () => void;
+  isCardBeingAnimated: (noteId: string) => boolean;
 }
 
-export function NoteList({ notes, onEdit, onDelete, onNewNoteClick }: NoteListProps) {
+export function NoteList({ notes, onEdit, onDelete, onNewNoteClick, isCardBeingAnimated }: NoteListProps) {
   if (notes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 border border-dashed rounded-lg bg-card">
@@ -37,6 +38,7 @@ export function NoteList({ notes, onEdit, onDelete, onNewNoteClick }: NoteListPr
           note={note}
           onEdit={onEdit}
           onDelete={onDelete}
+          isBeingAnimated={isCardBeingAnimated(note.id)}
         />
       ))}
     </div>
