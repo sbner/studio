@@ -15,7 +15,7 @@ import { NoteForm } from "@/components/NoteForm";
 import { NoteList } from "@/components/NoteList";
 import type { Note } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { Plus, Feather } from "lucide-react";
+import { Plus, Feather, NotebookPen } from "lucide-react"; // Added NotebookPen here
 import { useToast } from "@/hooks/use-toast";
 import { createNote, updateNote, deleteNote } from "@/services/syncService";
 import { AnimatedNoteOverlay } from "@/components/AnimatedNoteOverlay";
@@ -245,13 +245,23 @@ export default function HomePage() {
           </Button>
         </header>
 
-        <NoteList
-          notes={sortedNotes}
-          onEdit={handleOpenForm}
-          onDelete={handleDeleteNote}
-          onNewNoteClick={() => handleOpenForm()}
-          isCardBeingAnimated={isCardBeingAnimated}
-        />
+        {isClient ? (
+            <NoteList
+            notes={sortedNotes}
+            onEdit={handleOpenForm}
+            onDelete={handleDeleteNote}
+            onNewNoteClick={() => handleOpenForm()}
+            isCardBeingAnimated={isCardBeingAnimated}
+            />
+        ) : (
+            <div className="flex flex-col items-center justify-center text-center py-16 border border-dashed rounded-lg bg-card">
+                <NotebookPen className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
+                <h2 className="text-2xl font-semibold mb-3 text-card-foreground">Carregando Anotações...</h2>
+                <p className="text-muted-foreground mb-6 max-w-xs">
+                Por favor, aguarde um momento.
+                </p>
+            </div>
+        )}
         
         <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) handleCloseForm(); }}>
           <DialogContent 
@@ -305,3 +315,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
