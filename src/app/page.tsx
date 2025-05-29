@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -17,13 +18,21 @@ import { Plus, Feather } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function HomePage() {
-  const [notes, setNotes] = useLocalStorage<Note[]>("evernote-lite-notes", []);
+  const [notesFromStorage, setNotesInStorage] = useLocalStorage<Note[]>("evernote-lite-notes", []);
+  const [isClient, setIsClient] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  // Determine notes to use for rendering based on client-side hydration
+  const currentNotes = isClient ? notesFromStorage : [];
+
   // Sort notes by last updated, newest first
-  const sortedNotes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
+  const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
 
   const handleOpenForm = (note?: Note) => {
     setEditingNote(note || null);
@@ -39,7 +48,7 @@ export default function HomePage() {
     const now = Date.now();
     if (editingNote) {
       // Update existing note
-      setNotes((prevNotes) =>
+      setNotesInStorage((prevNotes) =>
         prevNotes.map((n) =>
           n.id === editingNote.id
             ? { ...n, ...data, updatedAt: now }
@@ -55,15 +64,15 @@ export default function HomePage() {
         createdAt: now,
         updatedAt: now,
       };
-      setNotes((prevNotes) => [newNote, ...prevNotes]);
+      setNotesInStorage((prevNotes) => [newNote, ...prevNotes]);
       toast({ title: "Note Created", description: `"${data.title}" has been successfully created.` });
     }
     handleCloseForm();
   };
 
   const handleDeleteNote = (noteId: string) => {
-    const noteToDelete = notes.find(n => n.id === noteId);
-    setNotes((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
+    const noteToDelete = notesFromStorage.find(n => n.id === noteId);
+    setNotesInStorage((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
     if (noteToDelete) {
       toast({
         title: "Note Deleted",
@@ -80,7 +89,7 @@ export default function HomePage() {
           <div className="flex items-center mb-4 sm:mb-0">
             <Feather className="h-10 w-10 text-primary mr-3" />
             <h1 className="text-4xl font-bold text-foreground">
-              Evernote <span className="font-light text-primary">Lite</span>
+              Evernote <span className="font-light text-primary">Here</span>
             </h1>
           </div>
           <Button onClick={() => handleOpenForm()} size="lg">
