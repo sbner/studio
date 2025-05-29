@@ -66,7 +66,7 @@ export default function HomePage() {
         targetRect: actualTargetRect,
         phase: 'expanding',
       });
-      setEditingNote(animationPending.noteToEdit);
+      setEditingNote(animationPending.noteToEdit); // Ensure editingNote is set for the form
       setAnimationPending(null); // Clear pending state
     }
   }, [animationPending, isFormOpen]);
@@ -75,9 +75,8 @@ export default function HomePage() {
   const handleOpenForm = useCallback((noteToEdit?: Note | null, cardRect?: DOMRect) => {
     if (noteToEdit && cardRect) { // Editing existing note with animation
       setAnimationPending({ noteToEdit, cardRect });
-      setIsFormOpen(true); // Open dialog first to allow measuring
-      // The useEffect above will pick this up and start the animation.
-    } else { // New note or no cardRect (fallback)
+      setIsFormOpen(true); // Open dialog first to allow measuring. useEffect above will handle animation.
+    } else { // New note or no cardRect (fallback, e.g. "Nova Anotação" button)
       setEditingNote(noteToEdit || null);
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' }); // Reset animation state
       setIsFormOpen(true);
@@ -88,18 +87,20 @@ export default function HomePage() {
   const handleCloseForm = useCallback(() => {
     if (animatingState.phase === 'expanded_dialog_open' && editingNote && animatingState.initialRect && animatingState.targetRect) {
       setIsFormOpen(false); // Close dialog first
+      // Ensure we have the latest version of the note for the collapse animation, in case it was updated.
       const noteForAnimation = notesFromStorage.find(n => n.id === editingNote.id) || editingNote;
       setAnimatingState(prev => ({
         ...prev,
-        note: noteForAnimation,
+        note: noteForAnimation, // Use potentially updated note data
         phase: 'collapsing',
       }));
     } else {
+      // Standard close without active collapse animation
       setIsFormOpen(false);
       setEditingNote(null);
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
     }
-  }, [animatingState, editingNote, notesFromStorage]);
+  }, [animatingState.phase, editingNote, notesFromStorage, animatingState.initialRect, animatingState.targetRect]);
 
 
   const onExpandAnimationEnd = useCallback(() => {
@@ -112,7 +113,7 @@ export default function HomePage() {
   const onCollapseAnimationEnd = useCallback(() => {
     if (animatingState.phase === 'collapsing') {
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
-      setEditingNote(null);
+      setEditingNote(null); // Clear editingNote only after collapse is fully done
     }
   }, [animatingState.phase]);
 
@@ -125,7 +126,7 @@ export default function HomePage() {
       const updatedNoteData: Note = {
         ...editingNote,
         ...data,
-        content: data.content ?? editingNote.content,
+        content: data.content ?? editingNote.content, // Ensure content is not accidentally cleared
         updatedAt: now,
       };
       setNotesInStorage((prevNotes) =>
@@ -133,7 +134,7 @@ export default function HomePage() {
           n.id === editingNote.id ? updatedNoteData : n
         )
       );
-      noteToAnimate = updatedNoteData;
+      noteToAnimate = updatedNoteData; // Use the updated data for animation
       toast({ title: "Anotação Atualizada", description: `"${updatedNoteData.title}" foi atualizada com sucesso.` });
       try {
         await updateNote(updatedNoteData);
@@ -145,7 +146,7 @@ export default function HomePage() {
           variant: "destructive",
         });
       }
-    } else {
+    } else { // Creating a new note
       const newNoteData: Note = {
         id: now.toString() + Math.random().toString(36).substring(2, 9),
         title: data.title,
@@ -155,6 +156,7 @@ export default function HomePage() {
         updatedAt: now,
       };
       setNotesInStorage((prevNotes) => [newNoteData, ...prevNotes]);
+      // noteToAnimate remains null for new notes as there's no card to collapse to
       toast({ title: "Anotação Criada", description: `"${newNoteData.title}" foi criada com sucesso.` });
       try {
         await createNote(newNoteData);
@@ -168,15 +170,19 @@ export default function HomePage() {
       }
     }
     
+    // Trigger collapse animation if a note was being edited and animation was active
     if (editingNote && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
-        setIsFormOpen(false);
+        setIsFormOpen(false); // Close dialog first
+        // If noteToAnimate is null (e.g., error during update logic, though unlikely here), fallback to editingNote
         const finalNoteForAnimation = noteToAnimate || editingNote;
          setAnimatingState(prev => ({
             ...prev,
-            note: finalNoteForAnimation,
+            note: finalNoteForAnimation, // Use the note data for the collapsing animation
             phase: 'collapsing',
         }));
+         // setEditingNote(null) will be called in onCollapseAnimationEnd
     } else {
+        // Standard close for new notes or if animation wasn't active
         setIsFormOpen(false);
         setEditingNote(null);
         setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
@@ -210,14 +216,18 @@ export default function HomePage() {
           variant: "destructive",
         });
     }
-    // Close form if the deleted note was being edited
+    // Close form if the deleted note was being edited (and potentially animated)
     if (editingNote && editingNote.id === noteId) {
+        // This will trigger standard close or collapse animation depending on animatingState
         handleCloseForm();
     }
   };
   
   const isCardBeingAnimated = useCallback((noteId: string) => {
-    return animatingState.note?.id === noteId && (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing');
+    return animatingState.note?.id === noteId && 
+           (animatingState.phase === 'expanding' || 
+            animatingState.phase === 'expanded_dialog_open' || 
+            animatingState.phase === 'collapsing');
   }, [animatingState.note?.id, animatingState.phase]);
 
   return (
@@ -295,5 +305,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    
