@@ -1,3 +1,4 @@
+
 export interface Note {
   id: string;
   title: string;
@@ -8,7 +9,7 @@ export interface Note {
 }
 
 export const NOTE_COLORS: Array<{ name: string; value: string; bgColor: string;}> = [
-  { name: 'Default', value: '', bgColor: 'transparent' }, // transparent for border styling
+  { name: 'Default', value: 'no-color', bgColor: 'transparent' }, // transparent for border styling
   { name: 'Sky Blue', value: 'sky-blue', bgColor: 'hsl(var(--primary))' },
   { name: 'Mint Green', value: 'mint-green', bgColor: 'hsl(var(--accent))' },
   { name: 'Sunshine Yellow', value: 'sunshine-yellow', bgColor: '#FFD54F' },
@@ -18,7 +19,8 @@ export const NOTE_COLORS: Array<{ name: string; value: string; bgColor: string;}
 ];
 
 export const getBgColorFromValue = (value?: string): string => {
-  if (!value) return NOTE_COLORS[0].bgColor; // Default color
+  if (!value) return NOTE_COLORS[0].bgColor; // Default color (will be 'no-color' which is transparent)
   const color = NOTE_COLORS.find(c => c.value === value);
   return color ? color.bgColor : NOTE_COLORS[0].bgColor;
 };
+

@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Control } from "react-hook-form";
@@ -46,12 +47,18 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
     defaultValues: {
       title: initialData?.title || "",
       content: initialData?.content || "",
-      colorTagValue: initialData?.colorTagValue || "",
+      colorTagValue: (initialData?.colorTagValue === '' || typeof initialData?.colorTagValue === 'undefined')
+                     ? 'no-color' 
+                     : initialData.colorTagValue,
     },
   });
 
   const handleSubmit = (values: NoteFormValues) => {
-    onSubmit(values);
+    const dataToSubmit = {
+      ...values,
+      colorTagValue: values.colorTagValue === 'no-color' ? '' : values.colorTagValue,
+    };
+    onSubmit(dataToSubmit);
   };
 
   return (
@@ -127,3 +134,4 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
     </Form>
   );
 }
+
