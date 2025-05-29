@@ -10,15 +10,16 @@ interface AnimatedNoteOverlayProps {
   note: Note;
   initialRect: DOMRect;
   targetRect: DOMRect;
-  phase: 'expanding' | 'expanded_dialog_open' | 'collapsing';
+  phase: 'preparing_to_expand' | 'expanding' | 'expanded_dialog_open' | 'collapsing';
   onExpandAnimationEnd: () => void;
   onCollapseAnimationEnd: () => void;
   isDialogShowing: boolean;
 }
 
-const ANIMATION_DURATION = 900; // ms
-const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 3); // Make fade out/in quicker
+const ANIMATION_DURATION = 400; // ms - Alterado de 900ms para 400ms
+const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 3);
 const COLLAPSE_OPACITY_DELAY = Math.floor(ANIMATION_DURATION / 2);
+
 
 export function AnimatedNoteOverlay({
   note,
@@ -44,19 +45,21 @@ export function AnimatedNoteOverlay({
     };
 
     if (phase === 'expanding' && initialRect && targetRect) {
+        // Start at card position, fully opaque
         const expandingInitialStyles: React.CSSProperties = {
             ...baseStyles,
-            zIndex: 50, // On top during expansion
+            zIndex: 50,
             top: `${initialRect.top}px`,
             left: `${initialRect.left}px`,
             width: `${initialRect.width}px`,
             height: `${initialRect.height}px`,
             opacity: 1,
-            pointerEvents: 'auto',
+            pointerEvents: 'auto', // Initially allow interaction if needed, though it's short-lived
             transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out`,
         };
         setCurrentStyles(expandingInitialStyles);
 
+        // Trigger animation to target (dialog) position
         requestAnimationFrame(() => {
             setCurrentStyles(prevStyles => ({
                 ...prevStyles,
@@ -67,10 +70,10 @@ export function AnimatedNoteOverlay({
             }));
         });
     } else if (phase === 'expanded_dialog_open' && targetRect) {
-        // Overlay should be invisible and non-interactive, behind the dialog
+        // At dialog position, but fully transparent and non-interactive
         setCurrentStyles({
             ...baseStyles,
-            zIndex: 40, // Behind dialog (dialog is z-50)
+            zIndex: 40, // Behind dialog
             top: `${targetRect.top}px`,
             left: `${targetRect.left}px`,
             width: `${targetRect.width}px`,
@@ -80,20 +83,21 @@ export function AnimatedNoteOverlay({
             transition: `opacity ${OPACITY_TRANSITION_DURATION}ms ease-out`,
         });
     } else if (phase === 'collapsing' && initialRect && targetRect) {
-        // Starts at dialog position, opaque, then animates to card and fades
+        // Start at dialog position, fully opaque
         const collapsingInitialStyles: React.CSSProperties = {
             ...baseStyles,
-            zIndex: 50, // On top during collapse
+            zIndex: 50,
             top: `${targetRect.top}px`,
             left: `${targetRect.left}px`,
             width: `${targetRect.width}px`,
             height: `${targetRect.height}px`,
             opacity: 1, // Start opaque
             pointerEvents: 'auto',
-            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${OPACITY_TRANSITION_DURATION}ms ease-in ${ANIMATION_DURATION - OPACITY_TRANSITION_DURATION}ms`, // Fade out at the end of collapse
+            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${OPACITY_TRANSITION_DURATION}ms ease-in ${ANIMATION_DURATION - OPACITY_TRANSITION_DURATION}ms`, // Fade out at the end
         };
         setCurrentStyles(collapsingInitialStyles);
 
+        // Trigger animation to initial (card) position and fade out
         requestAnimationFrame(() => {
             setCurrentStyles(prevStyles => ({
                 ...prevStyles,
@@ -104,8 +108,22 @@ export function AnimatedNoteOverlay({
                 opacity: 0, // End transparent
             }));
         });
-    } else if (phase === 'idle') {
-        setCurrentStyles({ opacity: 0, pointerEvents: 'none', zIndex: -1 });
+    } else if (phase === 'preparing_to_expand' && initialRect) {
+        // Positioned at the card, visible, before dialog is ready for measurement
+        setCurrentStyles({
+            ...baseStyles,
+            zIndex: 50,
+            top: `${initialRect.top}px`,
+            left: `${initialRect.left}px`,
+            width: `${initialRect.width}px`,
+            height: `${initialRect.height}px`,
+            opacity: 1,
+            pointerEvents: 'auto',
+            transition: 'none', // No transition yet, just position it
+        });
+    } else {
+        // Idle or other states, ensure it's hidden
+         setCurrentStyles({ opacity: 0, pointerEvents: 'none', zIndex: -1, transition: 'none' });
     }
   }, [phase, initialRect, targetRect]);
 
@@ -117,10 +135,8 @@ export function AnimatedNoteOverlay({
     let animationEndTimeoutId: NodeJS.Timeout | null = null;
 
     const handleTransitionEnd = (event: TransitionEvent) => {
-        if (event.target !== node) return;
+        if (event.target !== node || !event.propertyName.match(/top|left|width|height|opacity/)) return;
 
-        // Using a timeout as a more reliable way to detect end of complex animations
-        // The specific property check can be fragile.
         if (animationEndTimeoutId) clearTimeout(animationEndTimeoutId);
 
         animationEndTimeoutId = setTimeout(() => {
@@ -131,16 +147,16 @@ export function AnimatedNoteOverlay({
 
             if (phase === 'expanding') {
                 // Check if dimensions and position match target
-                if (Math.abs(currentTop - targetRect.top) < 1 && Math.abs(currentLeft - targetRect.left) < 1) {
+                if (Math.abs(currentTop - targetRect.top) < 2 && Math.abs(currentLeft - targetRect.left) < 2) { // Allow small tolerance
                     onExpandAnimationEnd();
                 }
             } else if (phase === 'collapsing') {
                  // Check if dimensions and position match initial and opacity is 0
-                if (Math.abs(currentTop - initialRect.top) < 1 && Math.abs(currentLeft - initialRect.left) < 1 && currentOpacity < 0.01) {
+                if (Math.abs(currentTop - initialRect.top) < 2 && Math.abs(currentLeft - initialRect.left) < 2 && currentOpacity < 0.05) { // Allow small tolerance for opacity
                     onCollapseAnimationEnd();
                 }
             }
-        }, ANIMATION_DURATION + 50); // Add a small buffer
+        }, ANIMATION_DURATION + 100); // Add a small buffer, slightly more than transition duration
     };
     
     node.addEventListener('transitionend', handleTransitionEnd);
@@ -148,15 +164,15 @@ export function AnimatedNoteOverlay({
       node.removeEventListener('transitionend', handleTransitionEnd);
       if (animationEndTimeoutId) clearTimeout(animationEndTimeoutId);
     };
+  // Rerun if critical props change, but be mindful of infinite loops.
+  // initialRect/targetRect are DOMRects, can cause re-runs if not stable.
+  // It's generally okay here as phase controls the logic.
   }, [phase, onExpandAnimationEnd, onCollapseAnimationEnd, initialRect, targetRect]);
 
 
-  if (phase === 'idle' && !isDialogShowing) { // Also hide if idle and dialog isn't a factor
+  if (phase === 'idle' && !isDialogShowing) {
     return null;
   }
-
-  // The component needs to exist in the DOM for transitions, even if opacity is 0.
-  // The `expanded_dialog_open` phase relies on opacity 0 and zIndex to hide.
 
   return (
     <div ref={overlayRef} style={currentStyles} className="overflow-hidden">
@@ -179,5 +195,7 @@ export function AnimatedNoteOverlay({
     </div>
   );
 }
+
+    
 
     
