@@ -28,11 +28,44 @@ export default function HomePage() {
     setIsClient(true);
   }, []);
 
-  // Determine notes to use for rendering based on client-side hydration
   const currentNotes = isClient ? notesFromStorage : [];
-
-  // Sort notes by last updated, newest first
   const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
+
+  const syncChange = async (action: 'create' | 'update' | 'delete', payload: Note | { id: string }) => {
+    console.log(`[SINCRONIZANDO COM O BACKEND]`);
+    console.log(`  Ação: ${action.toUpperCase()}`);
+    console.log(`  Timestamp: ${new Date().toISOString()}`);
+    console.log(`  Payload:`, payload);
+    console.log(`-----------------------------------`);
+
+    // Em uma aplicação real, esta seria uma chamada de API:
+    // try {
+    //   const endpoint = '/api/notes'; // ou /api/notes/${payload.id} para update/delete
+    //   let method = 'POST';
+    //   if (action === 'update') method = 'PUT';
+    //   if (action === 'delete') method = 'DELETE';
+
+    //   const response = await fetch(action === 'delete' ? `${endpoint}/${(payload as {id: string}).id}` : endpoint, {
+    //     method: method,
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: action !== 'delete' ? JSON.stringify(payload) : undefined,
+    //   });
+
+    //   if (!response.ok) {
+    //     const errorData = await response.text();
+    //     throw new Error(`Falha na sincronização: ${response.status} ${errorData}`);
+    //   }
+
+    //   const result = action !== 'delete' ? await response.json() : { message: 'Excluído com sucesso' };
+    //   console.log('Sincronização bem-sucedida:', result);
+    //   // Opcionalmente, atualize o estado local com base na resposta do servidor, por exemplo, marcar como sincronizado
+    // } catch (error) {
+    //   console.error('Erro na sincronização:', error);
+    //   // Lidar com falha na sincronização, por exemplo, lógica de nova tentativa, marcar como sincronização pendente
+    // }
+  };
 
   const handleOpenForm = (note?: Note) => {
     setEditingNote(note || null);
@@ -47,38 +80,54 @@ export default function HomePage() {
   const handleSaveNote = (data: { title: string; content?: string; colorTagValue?: string }) => {
     const now = Date.now();
     if (editingNote) {
-      // Update existing note
+      // Atualizar anotação existente
+      const updatedNote: Note = {
+        ...editingNote,
+        ...data,
+        content: data.content ?? editingNote.content, // Garante que content seja string
+        updatedAt: now,
+      };
       setNotesInStorage((prevNotes) =>
         prevNotes.map((n) =>
-          n.id === editingNote.id
-            ? { ...n, ...data, updatedAt: now }
-            : n
+          n.id === editingNote.id ? updatedNote : n
         )
       );
-      toast({ title: "Anotação Atualizada", description: `"${data.title}" foi atualizada com sucesso.` });
+      toast({ title: "Anotação Atualizada", description: `"${updatedNote.title}" foi atualizada com sucesso.` });
+      syncChange('update', updatedNote);
     } else {
-      // Create new note
+      // Criar nova anotação
       const newNote: Note = {
-        id: now.toString() + Math.random().toString(36).substring(2,9), // Simple unique ID
-        ...data,
+        id: now.toString() + Math.random().toString(36).substring(2, 9),
+        title: data.title,
+        content: data.content ?? '', // Garante que content seja string
+        colorTagValue: data.colorTagValue,
         createdAt: now,
         updatedAt: now,
       };
       setNotesInStorage((prevNotes) => [newNote, ...prevNotes]);
-      toast({ title: "Anotação Criada", description: `"${data.title}" foi criada com sucesso.` });
+      toast({ title: "Anotação Criada", description: `"${newNote.title}" foi criada com sucesso.` });
+      syncChange('create', newNote);
     }
     handleCloseForm();
   };
 
   const handleDeleteNote = (noteId: string) => {
     const noteToDelete = notesFromStorage.find(n => n.id === noteId);
-    setNotesInStorage((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
     if (noteToDelete) {
+      setNotesInStorage((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
       toast({
         title: "Anotação Excluída",
         description: `A anotação "${noteToDelete.title}" foi excluída.`,
         variant: "destructive",
       });
+      syncChange('delete', { id: noteId });
+    } else {
+      console.warn(`Tentativa de excluir anotação não encontrada: ${noteId}`);
+      toast({
+          title: "Erro",
+          description: "Anotação não encontrada para exclusão.",
+          variant: "destructive",
+        });
     }
   };
 
