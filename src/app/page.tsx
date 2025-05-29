@@ -55,7 +55,7 @@ export default function HomePage() {
             : n
         )
       );
-      toast({ title: "Note Updated", description: `"${data.title}" has been successfully updated.` });
+      toast({ title: "Anotação Atualizada", description: `"${data.title}" foi atualizada com sucesso.` });
     } else {
       // Create new note
       const newNote: Note = {
@@ -65,7 +65,7 @@ export default function HomePage() {
         updatedAt: now,
       };
       setNotesInStorage((prevNotes) => [newNote, ...prevNotes]);
-      toast({ title: "Note Created", description: `"${data.title}" has been successfully created.` });
+      toast({ title: "Anotação Criada", description: `"${data.title}" foi criada com sucesso.` });
     }
     handleCloseForm();
   };
@@ -75,8 +75,8 @@ export default function HomePage() {
     setNotesInStorage((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
     if (noteToDelete) {
       toast({
-        title: "Note Deleted",
-        description: `"${noteToDelete.title}" has been deleted.`,
+        title: "Anotação Excluída",
+        description: `A anotação "${noteToDelete.title}" foi excluída.`,
         variant: "destructive",
       });
     }
@@ -89,11 +89,11 @@ export default function HomePage() {
           <div className="flex items-center mb-4 sm:mb-0">
             <Feather className="h-10 w-10 text-primary mr-3" />
             <h1 className="text-4xl font-bold text-foreground">
-              Evernote <span className="font-light text-primary">Here</span>
+              Notas <span className="font-light text-primary">Aqui</span>
             </h1>
           </div>
           <Button onClick={() => handleOpenForm()} size="lg">
-            <Plus className="mr-2 h-5 w-5" /> New Note
+            <Plus className="mr-2 h-5 w-5" /> Nova Anotação
           </Button>
         </header>
 
@@ -108,10 +108,10 @@ export default function HomePage() {
           <DialogContent className="sm:max-w-[425px] md:max-w-[600px] max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle className="text-2xl">
-                {editingNote ? "Edit Note" : "Create New Note"}
+                {editingNote ? "Editar Anotação" : "Criar Nova Anotação"}
               </DialogTitle>
               <DialogDescription>
-                {editingNote ? "Modify the details of your note." : "Fill in the details to create a new note."}
+                {editingNote ? "Modifique os detalhes da sua anotação." : "Preencha os detalhes para criar uma nova anotação."}
               </DialogDescription>
             </DialogHeader>
             <div className="overflow-y-auto py-4 pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
@@ -126,7 +126,7 @@ export default function HomePage() {
       </main>
       <footer className="text-center py-6 mt-12 border-t">
         <p className="text-sm text-muted-foreground">
-          Evernote Lite &copy; {new Date().getFullYear()}
+          Notas Aqui &copy; {new Date().getFullYear()}
         </p>
       </footer>
     </div>

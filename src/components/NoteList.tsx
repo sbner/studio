@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Note } from "@/lib/types";
@@ -17,12 +18,12 @@ export function NoteList({ notes, onEdit, onDelete, onNewNoteClick }: NoteListPr
     return (
       <div className="flex flex-col items-center justify-center text-center py-16 border border-dashed rounded-lg bg-card">
         <NotebookPen className="mx-auto h-16 w-16 text-muted-foreground mb-6" />
-        <h2 className="text-2xl font-semibold mb-3 text-card-foreground">No Notes Yet</h2>
+        <h2 className="text-2xl font-semibold mb-3 text-card-foreground">Nenhuma Anotação Ainda</h2>
         <p className="text-muted-foreground mb-6 max-w-xs">
-          It looks a bit empty here. Why not create your first note?
+          Parece um pouco vazio por aqui. Que tal criar sua primeira anotação?
         </p>
         <Button onClick={onNewNoteClick} size="lg">
-          Create New Note
+          Criar Nova Anotação
         </Button>
       </div>
     );

@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -32,7 +33,7 @@ interface NoteCardProps {
 
 export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
   const borderColor = note.colorTagValue ? getBgColorFromValue(note.colorTagValue) : 'transparent';
-  const date = new Date(note.updatedAt).toLocaleDateString('en-US', {
+  const date = new Date(note.updatedAt).toLocaleDateString('pt-BR', {
     year: 'numeric', month: 'short', day: 'numeric'
   });
 
@@ -41,7 +42,7 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-semibold">{note.title}</CardTitle>
         <CardDescription className="text-xs">
-          Last updated: {date}
+          Última atualização: {date}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow pb-4">
@@ -50,29 +51,29 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
         </p>
       </CardContent>
       <CardFooter className="flex justify-end gap-2 pt-2 border-t">
-        <Button variant="ghost" size="icon" onClick={() => onEdit(note)} aria-label="Edit note">
+        <Button variant="ghost" size="icon" onClick={() => onEdit(note)} aria-label="Editar anotação">
           <FileEdit className="h-5 w-5" />
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Delete note">
+            <Button variant="ghost" size="icon" aria-label="Excluir anotação">
               <Trash2 className="h-5 w-5 text-destructive" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete your note titled "{note.title}".
+                Esta ação não pode ser desfeita. Isso excluirá permanentemente sua anotação intitulada "{note.title}".
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => onDelete(note.id)}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                Delete
+                Excluir
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

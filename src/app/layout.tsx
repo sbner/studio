@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Evernote Lite',
-  description: 'A simple note-taking app by Firebase Studio',
+  title: 'Notas Aqui',
+  description: 'Um aplicativo simples de anotações do Firebase Studio',
 };
 
 export default function RootLayout({

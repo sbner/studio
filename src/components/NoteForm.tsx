@@ -28,7 +28,7 @@ import { NOTE_COLORS } from "@/lib/types";
 import { DialogFooter } from "@/components/ui/dialog"; // Assuming this is part of a Dialog
 
 const formSchema = z.object({
-  title: z.string().min(1, "Title is required").max(100, "Title is too long"),
+  title: z.string().min(1, "O título é obrigatório").max(100, "O título é muito longo"),
   content: z.string().optional(),
   colorTagValue: z.string().optional(),
 });
@@ -69,9 +69,9 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Title</FormLabel>
+              <FormLabel>Título</FormLabel>
               <FormControl>
-                <Input placeholder="Enter note title" {...field} />
+                <Input placeholder="Digite o título da anotação" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -82,10 +82,10 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
           name="content"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Content</FormLabel>
+              <FormLabel>Conteúdo</FormLabel>
               <FormControl>
                 <Textarea
-                  placeholder="Write your note here..."
+                  placeholder="Escreva sua anotação aqui..."
                   className="min-h-[200px] resize-none"
                   {...field}
                 />
@@ -99,11 +99,11 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
           name="colorTagValue"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Color Tag</FormLabel>
+              <FormLabel>Etiqueta de Cor</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a color tag" />
+                    <SelectValue placeholder="Selecione uma etiqueta de cor" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -126,12 +126,11 @@ export function NoteForm({ initialData, onSubmit, onClose }: NoteFormProps) {
         />
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
+            Cancelar
           </Button>
-          <Button type="submit">Save Note</Button>
+          <Button type="submit">Salvar Anotação</Button>
         </DialogFooter>
       </form>
     </Form>
   );
 }
-
