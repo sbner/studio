@@ -16,7 +16,7 @@ interface AnimatedNoteOverlayProps {
   isDialogShowing: boolean;
 }
 
-const ANIMATION_DURATION = 200; // ms - Alterado para 200ms
+const ANIMATION_DURATION = 100; // ms - Alterado para 100ms
 const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 3);
 const COLLAPSE_OPACITY_DELAY = Math.floor(ANIMATION_DURATION / 2);
 
@@ -54,7 +54,7 @@ export function AnimatedNoteOverlay({
             width: `${initialRect.width}px`,
             height: `${initialRect.height}px`,
             opacity: 1,
-            pointerEvents: 'auto', // Initially allow interaction if needed, though it's short-lived
+            pointerEvents: 'auto', 
             transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out`,
         };
         setCurrentStyles(expandingInitialStyles);
@@ -91,9 +91,9 @@ export function AnimatedNoteOverlay({
             left: `${targetRect.left}px`,
             width: `${targetRect.width}px`,
             height: `${targetRect.height}px`,
-            opacity: 1, // Start opaque
+            opacity: 1, 
             pointerEvents: 'auto',
-            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${OPACITY_TRANSITION_DURATION}ms ease-in ${ANIMATION_DURATION - OPACITY_TRANSITION_DURATION}ms`, // Fade out at the end
+            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${OPACITY_TRANSITION_DURATION}ms ease-in ${ANIMATION_DURATION - OPACITY_TRANSITION_DURATION}ms`, 
         };
         setCurrentStyles(collapsingInitialStyles);
 
@@ -105,7 +105,7 @@ export function AnimatedNoteOverlay({
                 left: `${initialRect.left}px`,
                 width: `${initialRect.width}px`,
                 height: `${initialRect.height}px`,
-                opacity: 0, // End transparent
+                opacity: 0, 
             }));
         });
     } else if (phase === 'preparing_to_expand' && initialRect) {
@@ -119,7 +119,7 @@ export function AnimatedNoteOverlay({
             height: `${initialRect.height}px`,
             opacity: 1,
             pointerEvents: 'auto',
-            transition: 'none', // No transition yet, just position it
+            transition: 'none', 
         });
     } else {
         // Idle or other states, ensure it's hidden
@@ -139,6 +139,8 @@ export function AnimatedNoteOverlay({
 
         if (animationEndTimeoutId) clearTimeout(animationEndTimeoutId);
 
+        // A more reliable way for shorter animations might be a direct timeout,
+        // but we'll keep the transitionend listener with a slightly longer buffer.
         animationEndTimeoutId = setTimeout(() => {
             const styles = window.getComputedStyle(node);
             const currentTop = parseFloat(styles.top);
@@ -146,17 +148,15 @@ export function AnimatedNoteOverlay({
             const currentOpacity = parseFloat(styles.opacity);
 
             if (phase === 'expanding') {
-                // Check if dimensions and position match target
-                if (Math.abs(currentTop - targetRect.top) < 2 && Math.abs(currentLeft - targetRect.left) < 2) { // Allow small tolerance
+                if (Math.abs(currentTop - targetRect.top) < 2 && Math.abs(currentLeft - targetRect.left) < 2) { 
                     onExpandAnimationEnd();
                 }
             } else if (phase === 'collapsing') {
-                 // Check if dimensions and position match initial and opacity is 0
-                if (Math.abs(currentTop - initialRect.top) < 2 && Math.abs(currentLeft - initialRect.left) < 2 && currentOpacity < 0.05) { // Allow small tolerance for opacity
+                if (Math.abs(currentTop - initialRect.top) < 2 && Math.abs(currentLeft - initialRect.left) < 2 && currentOpacity < 0.05) { 
                     onCollapseAnimationEnd();
                 }
             }
-        }, ANIMATION_DURATION + 100); // Add a small buffer, slightly more than transition duration
+        }, ANIMATION_DURATION + 50); // Buffer for animation completion detection
     };
     
     node.addEventListener('transitionend', handleTransitionEnd);
@@ -164,9 +164,6 @@ export function AnimatedNoteOverlay({
       node.removeEventListener('transitionend', handleTransitionEnd);
       if (animationEndTimeoutId) clearTimeout(animationEndTimeoutId);
     };
-  // Rerun if critical props change, but be mindful of infinite loops.
-  // initialRect/targetRect are DOMRects, can cause re-runs if not stable.
-  // It's generally okay here as phase controls the logic.
   }, [phase, onExpandAnimationEnd, onCollapseAnimationEnd, initialRect, targetRect]);
 
 
@@ -195,7 +192,3 @@ export function AnimatedNoteOverlay({
     </div>
   );
 }
-
-    
-
-    
