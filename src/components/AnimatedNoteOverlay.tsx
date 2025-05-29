@@ -16,7 +16,7 @@ interface AnimatedNoteOverlayProps {
   isDialogShowing: boolean;
 }
 
-const ANIMATION_DURATION = 400; // ms - Alterado de 900ms para 400ms
+const ANIMATION_DURATION = 200; // ms - Alterado para 200ms
 const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 3);
 const COLLAPSE_OPACITY_DELAY = Math.floor(ANIMATION_DURATION / 2);
 
