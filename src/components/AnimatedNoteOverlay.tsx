@@ -17,7 +17,7 @@ interface AnimatedNoteOverlayProps {
   isDialogShowing: boolean;
 }
 
-const ANIMATION_DURATION = 800; // ms
+const ANIMATION_DURATION = 900; // ms
 const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 2); // ms
 const COLLAPSE_OPACITY_DELAY = Math.floor(ANIMATION_DURATION / 2); // ms
 
@@ -104,7 +104,7 @@ export function AnimatedNoteOverlay({
     const handleTransitionEnd = (event: TransitionEvent) => {
       // Ensure we're listening to a property that signifies the end of the main animation
       if (event.propertyName === 'opacity') { 
-        if (phase === 'expanding' && currentStyles.opacity === 1 && currentStyles.top === `${targetRect.top}px`) {
+        if (phase === 'expanding' && currentStyles.opacity === 1 && currentStyles.top === `${targetRect?.top}px`) { // Added null check for targetRect
            onExpandAnimationEnd();
         } else if (phase === 'collapsing' && currentStyles.opacity === 0) {
           onCollapseAnimationEnd();
