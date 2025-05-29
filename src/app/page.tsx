@@ -20,16 +20,11 @@ import { useToast } from "@/hooks/use-toast";
 import { createNote, updateNote, deleteNote } from "@/services/syncService";
 import { AnimatedNoteOverlay } from "@/components/AnimatedNoteOverlay";
 
-type AnimationPendingState = {
-  noteToEdit: Note;
-  cardRect: DOMRect;
-} | null;
-
 type AnimatingState = {
   note: Note | null;
   initialRect: DOMRect | null;
   targetRect: DOMRect | null;
-  phase: 'idle' | 'expanding' | 'expanded_dialog_open' | 'collapsing';
+  phase: 'idle' | 'preparing_to_expand' | 'expanding' | 'expanded_dialog_open' | 'collapsing';
 };
 
 export default function HomePage() {
@@ -39,7 +34,6 @@ export default function HomePage() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const { toast } = useToast();
 
-  const [animationPending, setAnimationPending] = useState<AnimationPendingState>(null);
   const [animatingState, setAnimatingState] = useState<AnimatingState>({
     note: null,
     initialRect: null,
@@ -57,44 +51,52 @@ export default function HomePage() {
   const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
 
   useEffect(() => {
-    if (animationPending && isFormOpen) {
-      requestAnimationFrame(() => {
-        if (dialogContentRef.current) {
-          const actualTargetRect = dialogContentRef.current.getBoundingClientRect();
-          const noteForAnimationAndForm = animationPending.noteToEdit;
+    if (animatingState.phase === 'preparing_to_expand' && animatingState.initialRect && animatingState.note) {
+      // Ensure dialog is in the DOM to be measured.
+      // Its content will be hidden by style prop based on 'preparing_to_expand' phase.
+      if (!isFormOpen) {
+        setIsFormOpen(true);
+        // The effect will re-run due to isFormOpen changing, or rAF below will catch it.
+      }
 
-          setAnimatingState({
-            note: noteForAnimationAndForm,
-            initialRect: animationPending.cardRect,
-            targetRect: actualTargetRect,
-            phase: 'expanding',
-          });
-          // editingNote is already set in handleOpenForm
-          setAnimationPending(null);
-        } else {
-          // Fallback if dialog ref is somehow not ready after rAF
-          console.warn("Dialog content ref not available after rAF in animation setup. Opening form without animation.");
-          if (animationPending) { // Ensure animationPending is still valid
-            setEditingNote(animationPending.noteToEdit);
+      // Measure after setIsFormOpen(true) has propagated and dialog is likely mounted.
+      // This rAF ensures we are trying to measure after the browser has had a chance to paint/layout.
+      if (isFormOpen) { // Check if isFormOpen is true before scheduling rAF
+        requestAnimationFrame(() => {
+          // Double-check phase, as it might have changed due to rapid state updates or race conditions.
+          if (dialogContentRef.current && animatingState.phase === 'preparing_to_expand' && animatingState.initialRect && animatingState.note) {
+            const actualTargetRect = dialogContentRef.current.getBoundingClientRect();
+            setAnimatingState(prev => ({
+              ...prev, // note and initialRect are already set
+              targetRect: actualTargetRect,
+              phase: 'expanding', // Transition to expanding phase
+            }));
+          } else if (animatingState.phase === 'preparing_to_expand') {
+            // Fallback if dialogContentRef is still not available
+            console.warn("Dialog content ref not available in 'preparing_expansion' rAF. Opening form without animation.");
+            setAnimatingState(prev => ({ ...prev, initialRect: null, targetRect: null, phase: 'expanded_dialog_open' }));
+            if(!isFormOpen) setIsFormOpen(true); // Ensure form is open if somehow it wasn't
           }
-          setAnimationPending(null);
-          // Ensure form is open if it was meant to be, but reset animation state
-          setIsFormOpen(true); 
-          setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
-        }
-      });
+        });
+      }
     }
-  }, [animationPending, isFormOpen]);
+  }, [animatingState.phase, animatingState.initialRect, animatingState.note, isFormOpen]);
 
 
   const handleOpenForm = useCallback((noteToEditParam?: Note | null, cardRect?: DOMRect) => {
     if (noteToEditParam && cardRect) { // Editing existing note with animation
       const freshNoteToEdit = notesFromStorage.find(n => n.id === noteToEditParam.id) || noteToEditParam;
       setEditingNote(freshNoteToEdit);
-      setAnimationPending({ noteToEdit: freshNoteToEdit, cardRect });
-      setIsFormOpen(true);
+      setAnimatingState({
+        note: freshNoteToEdit,
+        initialRect: cardRect,
+        targetRect: null, // Will be filled in useEffect
+        phase: 'preparing_to_expand',
+      });
+      // isFormOpen will be set to true by the useEffect handling 'preparing_to_expand'
     } else { // New note or no cardRect (fallback, e.g. "Nova Anotação" button)
       setEditingNote(noteToEditParam || null);
+      // Ensure any previous animation state is cleared for non-animated open
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
       setIsFormOpen(true);
     }
@@ -103,8 +105,7 @@ export default function HomePage() {
 
   const handleCloseForm = useCallback(() => {
     if (animatingState.phase === 'expanded_dialog_open' && editingNote && animatingState.initialRect && animatingState.targetRect) {
-      setIsFormOpen(false);
-      // Use the latest version of the note for the collapsing animation content
+      // isFormOpen remains true, DialogContent visibility will hide it.
       const noteForAnimation = notesFromStorage.find(n => n.id === editingNote.id) || editingNote;
       setAnimatingState(prev => ({
         ...prev,
@@ -112,10 +113,10 @@ export default function HomePage() {
         phase: 'collapsing',
       }));
     } else {
+      // For non-animated close or closing from other states
       setIsFormOpen(false);
       setEditingNote(null);
-      // Only reset animation if not actively expanding or collapsing to avoid interrupting an ongoing animation
-      if (animatingState.phase !== 'expanding' && animatingState.phase !== 'collapsing') {
+      if (animatingState.phase !== 'expanding' && animatingState.phase !== 'collapsing' && animatingState.phase !== 'preparing_to_expand') {
         setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
       }
     }
@@ -132,6 +133,7 @@ export default function HomePage() {
     if (animatingState.phase === 'collapsing') {
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
       setEditingNote(null);
+      setIsFormOpen(false); // Close dialog after collapse animation
     }
   }, [animatingState.phase]);
 
@@ -174,7 +176,6 @@ export default function HomePage() {
         updatedAt: now,
       };
       setNotesInStorage((prevNotes) => [newNoteData, ...prevNotes]);
-      // For new notes, there's no collapse animation from dialog, so no need to set noteToUseForCollapseAnimation
       toast({ title: "Anotação Criada", description: `"${newNoteData.title}" foi criada com sucesso.` });
       try {
         await createNote(newNoteData);
@@ -187,18 +188,21 @@ export default function HomePage() {
         });
       }
     }
-   
+
+    // If we were editing and the dialog was fully open (meaning an animation occurred)
     if (editingNote && noteToUseForCollapseAnimation && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
-        setIsFormOpen(false);
-         setAnimatingState(prev => ({
-            ...prev, // prev.note is the original note that started the animation
-            note: noteToUseForCollapseAnimation, // The overlay will animate WITH the updated note content
+        // isFormOpen remains true. DialogContent visibility will hide it.
+        setAnimatingState(prev => ({
+            ...prev,
+            note: noteToUseForCollapseAnimation,
             phase: 'collapsing',
         }));
     } else {
+        // For new notes or if form was opened without animation
         setIsFormOpen(false);
         setEditingNote(null);
-        if (animatingState.phase !== 'expanding' && animatingState.phase !== 'collapsing') {
+        // Reset animation state if not in a transition
+        if (animatingState.phase !== 'expanding' && animatingState.phase !== 'collapsing' && animatingState.phase !== 'preparing_to_expand') {
           setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
         }
     }
@@ -231,17 +235,16 @@ export default function HomePage() {
           variant: "destructive",
         });
     }
-    // If the deleted note was being edited, close the form.
-    // handleCloseForm will manage the collapse animation if applicable.
     if (editingNote && editingNote.id === noteId) {
-        handleCloseForm();
+        handleCloseForm(); // This will trigger collapse animation if applicable
     }
   };
- 
+
   const isCardBeingAnimated = useCallback((noteId: string) => {
     return animatingState.note?.id === noteId &&
-           (animatingState.phase === 'expanding' ||
-            animatingState.phase === 'expanded_dialog_open' ||
+           (animatingState.phase === 'preparing_to_expand' ||
+            animatingState.phase === 'expanding' ||
+            animatingState.phase === 'expanded_dialog_open' || // Card should remain hidden while dialog is open for it
             animatingState.phase === 'collapsing');
   }, [animatingState.note?.id, animatingState.phase]);
 
@@ -277,22 +280,24 @@ export default function HomePage() {
                 </p>
             </div>
         )}
-       
+
         <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) handleCloseForm(); }}>
           <DialogContent
             ref={dialogContentRef}
             className="sm:max-w-[425px] md:max-w-[600px] max-h-[90vh] flex flex-col"
             onInteractOutside={(e) => {
-              if (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing') {
+              if (animatingState.phase === 'preparing_to_expand' || animatingState.phase === 'expanding' || animatingState.phase === 'collapsing') {
                  e.preventDefault();
               }
             }}
-            // Hide dialog content visually if the overlay is expanding or collapsing on top of it.
-            // The overlay itself has opacity 0 when dialog is fully open (expanded_dialog_open)
-            style={{ 
-              visibility: (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing') && animatingState.note?.id === editingNote?.id 
-                          ? 'hidden' 
-                          : 'visible' 
+            style={{
+              visibility: (
+                animatingState.phase === 'preparing_to_expand' ||
+                animatingState.phase === 'expanding' ||
+                animatingState.phase === 'collapsing'
+              ) && animatingState.note?.id === editingNote?.id
+                ? 'hidden'
+                : 'visible'
             }}
           >
             <DialogHeader>
@@ -314,16 +319,19 @@ export default function HomePage() {
           </DialogContent>
         </Dialog>
 
-        {(animatingState.phase === 'expanding' || animatingState.phase === 'expanded_dialog_open' || animatingState.phase === 'collapsing') &&
-         animatingState.note && animatingState.initialRect && animatingState.targetRect && (
+        {(animatingState.phase !== 'idle' && animatingState.phase !== 'expanded_dialog_open' || // Render overlay unless idle or dialog fully open (overlay is then transparent)
+         (animatingState.phase === 'expanded_dialog_open' && isFormOpen) // Also render if dialog is open, to keep it positioned correctly but transparent
+        ) &&
+         animatingState.note && animatingState.initialRect && (animatingState.targetRect || animatingState.phase === 'preparing_to_expand') && (
           <AnimatedNoteOverlay
             note={animatingState.note}
             initialRect={animatingState.initialRect}
-            targetRect={animatingState.targetRect}
+            // targetRect might be null during 'preparing_to_expand', use initialRect as placeholder if so, though not strictly needed for rendering
+            targetRect={animatingState.targetRect || animatingState.initialRect}
             phase={animatingState.phase}
             onExpandAnimationEnd={onExpandAnimationEnd}
             onCollapseAnimationEnd={onCollapseAnimationEnd}
-            isDialogShowing={animatingState.phase === 'expanded_dialog_open'}
+            isDialogShowing={animatingState.phase === 'expanded_dialog_open' && isFormOpen}
           />
         )}
 
