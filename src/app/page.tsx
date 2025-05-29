@@ -16,6 +16,7 @@ import type { Note } from "@/lib/types";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Plus, Feather } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { createNote, updateNote, deleteNote } from "@/services/syncService";
 
 export default function HomePage() {
   const [notesFromStorage, setNotesInStorage] = useLocalStorage<Note[]>("evernote-lite-notes", []);
@@ -31,42 +32,6 @@ export default function HomePage() {
   const currentNotes = isClient ? notesFromStorage : [];
   const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
 
-  const syncChange = async (action: 'create' | 'update' | 'delete', payload: Note | { id: string }) => {
-    console.log(`[SINCRONIZANDO COM O BACKEND]`);
-    console.log(`  Ação: ${action.toUpperCase()}`);
-    console.log(`  Timestamp: ${new Date().toISOString()}`);
-    console.log(`  Payload:`, payload);
-    console.log(`-----------------------------------`);
-
-    // Em uma aplicação real, esta seria uma chamada de API:
-    // try {
-    //   const endpoint = '/api/notes'; // ou /api/notes/${payload.id} para update/delete
-    //   let method = 'POST';
-    //   if (action === 'update') method = 'PUT';
-    //   if (action === 'delete') method = 'DELETE';
-
-    //   const response = await fetch(action === 'delete' ? `${endpoint}/${(payload as {id: string}).id}` : endpoint, {
-    //     method: method,
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: action !== 'delete' ? JSON.stringify(payload) : undefined,
-    //   });
-
-    //   if (!response.ok) {
-    //     const errorData = await response.text();
-    //     throw new Error(`Falha na sincronização: ${response.status} ${errorData}`);
-    //   }
-
-    //   const result = action !== 'delete' ? await response.json() : { message: 'Excluído com sucesso' };
-    //   console.log('Sincronização bem-sucedida:', result);
-    //   // Opcionalmente, atualize o estado local com base na resposta do servidor, por exemplo, marcar como sincronizado
-    // } catch (error) {
-    //   console.error('Erro na sincronização:', error);
-    //   // Lidar com falha na sincronização, por exemplo, lógica de nova tentativa, marcar como sincronização pendente
-    // }
-  };
-
   const handleOpenForm = (note?: Note) => {
     setEditingNote(note || null);
     setIsFormOpen(true);
@@ -77,11 +42,11 @@ export default function HomePage() {
     setEditingNote(null);
   };
 
-  const handleSaveNote = (data: { title: string; content?: string; colorTagValue?: string }) => {
+  const handleSaveNote = async (data: { title: string; content?: string; colorTagValue?: string }) => {
     const now = Date.now();
     if (editingNote) {
       // Atualizar anotação existente
-      const updatedNote: Note = {
+      const updatedNoteData: Note = {
         ...editingNote,
         ...data,
         content: data.content ?? editingNote.content, // Garante que content seja string
@@ -89,14 +54,25 @@ export default function HomePage() {
       };
       setNotesInStorage((prevNotes) =>
         prevNotes.map((n) =>
-          n.id === editingNote.id ? updatedNote : n
+          n.id === editingNote.id ? updatedNoteData : n
         )
       );
-      toast({ title: "Anotação Atualizada", description: `"${updatedNote.title}" foi atualizada com sucesso.` });
-      syncChange('update', updatedNote);
+      toast({ title: "Anotação Atualizada", description: `"${updatedNoteData.title}" foi atualizada com sucesso.` });
+      try {
+        await updateNote(updatedNoteData);
+        // Lógica adicional em caso de sucesso na sincronização, se necessário
+      } catch (error) {
+        console.error("Falha ao sincronizar atualização da anotação:", error);
+        // Lógica para lidar com falha na sincronização (ex: toast de erro, marcar para tentar novamente)
+        toast({
+          title: "Erro de Sincronização",
+          description: "Não foi possível atualizar a anotação no servidor.",
+          variant: "destructive",
+        });
+      }
     } else {
       // Criar nova anotação
-      const newNote: Note = {
+      const newNoteData: Note = {
         id: now.toString() + Math.random().toString(36).substring(2, 9),
         title: data.title,
         content: data.content ?? '', // Garante que content seja string
@@ -104,14 +80,24 @@ export default function HomePage() {
         createdAt: now,
         updatedAt: now,
       };
-      setNotesInStorage((prevNotes) => [newNote, ...prevNotes]);
-      toast({ title: "Anotação Criada", description: `"${newNote.title}" foi criada com sucesso.` });
-      syncChange('create', newNote);
+      setNotesInStorage((prevNotes) => [newNoteData, ...prevNotes]);
+      toast({ title: "Anotação Criada", description: `"${newNoteData.title}" foi criada com sucesso.` });
+      try {
+        await createNote(newNoteData);
+        // Lógica adicional em caso de sucesso na sincronização, se necessário
+      } catch (error) {
+        console.error("Falha ao sincronizar criação da anotação:", error);
+        toast({
+          title: "Erro de Sincronização",
+          description: "Não foi possível criar a anotação no servidor.",
+          variant: "destructive",
+        });
+      }
     }
     handleCloseForm();
   };
 
-  const handleDeleteNote = (noteId: string) => {
+  const handleDeleteNote = async (noteId: string) => {
     const noteToDelete = notesFromStorage.find(n => n.id === noteId);
     if (noteToDelete) {
       setNotesInStorage((prevNotes) => prevNotes.filter((n) => n.id !== noteId));
@@ -120,7 +106,20 @@ export default function HomePage() {
         description: `A anotação "${noteToDelete.title}" foi excluída.`,
         variant: "destructive",
       });
-      syncChange('delete', { id: noteId });
+      try {
+        await deleteNote(noteId);
+        // Lógica adicional em caso de sucesso na sincronização, se necessário
+      } catch (error) {
+        console.error("Falha ao sincronizar exclusão da anotação:", error);
+        // Se a sincronização falhar, podemos reverter a exclusão local ou notificar o usuário
+         toast({
+          title: "Erro de Sincronização",
+          description: "Não foi possível excluir a anotação no servidor.",
+          variant: "destructive",
+        });
+        // Exemplo de rollback (opcional):
+        // setNotesInStorage((prevNotes) => [...prevNotes, noteToDelete].sort((a, b) => b.updatedAt - a.updatedAt));
+      }
     } else {
       console.warn(`Tentativa de excluir anotação não encontrada: ${noteId}`);
       toast({
