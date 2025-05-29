@@ -2,7 +2,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,10 +20,15 @@ import { useToast } from "@/hooks/use-toast";
 import { createNote, updateNote, deleteNote } from "@/services/syncService";
 import { AnimatedNoteOverlay } from "@/components/AnimatedNoteOverlay";
 
+type AnimationPendingState = {
+  noteToEdit: Note;
+  cardRect: DOMRect;
+} | null;
+
 type AnimatingState = {
   note: Note | null;
   initialRect: DOMRect | null;
-  targetRect: DOMRect | null; // Store target rect for consistent collapse
+  targetRect: DOMRect | null;
   phase: 'idle' | 'expanding' | 'expanded_dialog_open' | 'collapsing';
 };
 
@@ -34,6 +39,7 @@ export default function HomePage() {
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const { toast } = useToast();
 
+  const [animationPending, setAnimationPending] = useState<AnimationPendingState>(null);
   const [animatingState, setAnimatingState] = useState<AnimatingState>({
     note: null,
     initialRect: null,
@@ -41,7 +47,7 @@ export default function HomePage() {
     phase: 'idle',
   });
 
-  const dialogContentRef = React.useRef<HTMLDivElement>(null);
+  const dialogContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -50,51 +56,45 @@ export default function HomePage() {
   const currentNotes = isClient ? notesFromStorage : [];
   const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
 
-  const calculateTargetRect = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const dialogElement = dialogContentRef.current;
-      if (dialogElement) {
-        return dialogElement.getBoundingClientRect();
-      }
-      // Fallback if ref is not ready - approximate center
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const width = Math.min(600, vw * 0.8);
-      const height = Math.min(500, vh * 0.7);
-      return new DOMRect((vw - width) / 2, (vh - height) / 2, width, height);
-    }
-    return new DOMRect(0,0,600,500); // Default for SSR or if window is not defined
-  }, []);
-
-
-  const handleOpenForm = useCallback((noteToEdit: Note, cardRect?: DOMRect) => {
-    if (cardRect) {
-      const targetRect = calculateTargetRect();
+  // Effect to handle starting expansion animation *after* dialog is open and measurable
+  useEffect(() => {
+    if (animationPending && isFormOpen && dialogContentRef.current) {
+      const actualTargetRect = dialogContentRef.current.getBoundingClientRect();
       setAnimatingState({
-        note: noteToEdit,
-        initialRect: cardRect,
-        targetRect: targetRect,
+        note: animationPending.noteToEdit,
+        initialRect: animationPending.cardRect,
+        targetRect: actualTargetRect,
         phase: 'expanding',
       });
-      setEditingNote(noteToEdit);
-      // Dialog will be opened by onExpandAnimationEnd
-    } else { // Fallback if no cardRect (e.g., new note)
+      setEditingNote(animationPending.noteToEdit);
+      setAnimationPending(null); // Clear pending state
+    }
+  }, [animationPending, isFormOpen]);
+
+
+  const handleOpenForm = useCallback((noteToEdit?: Note | null, cardRect?: DOMRect) => {
+    if (noteToEdit && cardRect) { // Editing existing note with animation
+      setAnimationPending({ noteToEdit, cardRect });
+      setIsFormOpen(true); // Open dialog first to allow measuring
+      // The useEffect above will pick this up and start the animation.
+    } else { // New note or no cardRect (fallback)
       setEditingNote(noteToEdit || null);
+      setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' }); // Reset animation state
       setIsFormOpen(true);
     }
-  }, [calculateTargetRect]);
+  }, []);
+
 
   const handleCloseForm = useCallback(() => {
     if (animatingState.phase === 'expanded_dialog_open' && editingNote && animatingState.initialRect && animatingState.targetRect) {
       setIsFormOpen(false); // Close dialog first
-      // Ensure we use the latest note data for animation if it was edited
       const noteForAnimation = notesFromStorage.find(n => n.id === editingNote.id) || editingNote;
       setAnimatingState(prev => ({
         ...prev,
         note: noteForAnimation,
         phase: 'collapsing',
       }));
-    } else { // If not part of animation sequence (e.g. new note cancel)
+    } else {
       setIsFormOpen(false);
       setEditingNote(null);
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
@@ -105,14 +105,14 @@ export default function HomePage() {
   const onExpandAnimationEnd = useCallback(() => {
     if (animatingState.phase === 'expanding') {
       setAnimatingState(prev => ({ ...prev, phase: 'expanded_dialog_open' }));
-      setIsFormOpen(true);
+      // Dialog is already open by now due to the new handleOpenForm logic
     }
   }, [animatingState.phase]);
 
   const onCollapseAnimationEnd = useCallback(() => {
     if (animatingState.phase === 'collapsing') {
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
-      setEditingNote(null); // Clear editing note after collapse
+      setEditingNote(null);
     }
   }, [animatingState.phase]);
 
@@ -146,7 +146,6 @@ export default function HomePage() {
         });
       }
     } else {
-      // Criar nova anotação
       const newNoteData: Note = {
         id: now.toString() + Math.random().toString(36).substring(2, 9),
         title: data.title,
@@ -169,18 +168,18 @@ export default function HomePage() {
       }
     }
     
-    // Trigger collapse animation if was editing
     if (editingNote && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
         setIsFormOpen(false);
         const finalNoteForAnimation = noteToAnimate || editingNote;
          setAnimatingState(prev => ({
             ...prev,
-            note: finalNoteForAnimation, // Use the most up-to-date note for animation
+            note: finalNoteForAnimation,
             phase: 'collapsing',
         }));
     } else {
         setIsFormOpen(false);
         setEditingNote(null);
+        setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' });
     }
   };
 
@@ -211,10 +210,14 @@ export default function HomePage() {
           variant: "destructive",
         });
     }
+    // Close form if the deleted note was being edited
+    if (editingNote && editingNote.id === noteId) {
+        handleCloseForm();
+    }
   };
   
   const isCardBeingAnimated = useCallback((noteId: string) => {
-    return animatingState.note?.id === noteId && animatingState.phase !== 'idle';
+    return animatingState.note?.id === noteId && (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing');
   }, [animatingState.note?.id, animatingState.phase]);
 
   return (
@@ -227,7 +230,7 @@ export default function HomePage() {
               Notas <span className="font-light text-primary">Aqui</span>
             </h1>
           </div>
-          <Button onClick={() => handleOpenForm(null as any)} size="lg"> {/* Cast to any to satisfy new signature temporarily for new notes */}
+          <Button onClick={() => handleOpenForm()} size="lg">
             <Plus className="mr-2 h-5 w-5" /> Nova Anotação
           </Button>
         </header>
@@ -236,37 +239,19 @@ export default function HomePage() {
           notes={sortedNotes}
           onEdit={handleOpenForm}
           onDelete={handleDeleteNote}
-          onNewNoteClick={() => handleOpenForm(null as any)}
+          onNewNoteClick={() => handleOpenForm()}
           isCardBeingAnimated={isCardBeingAnimated}
         />
-
-        {animatingState.phase !== 'idle' && animatingState.note && animatingState.initialRect && animatingState.targetRect && (
-          <AnimatedNoteOverlay
-            note={animatingState.note}
-            initialRect={animatingState.initialRect}
-            targetRect={animatingState.targetRect}
-            phase={animatingState.phase}
-            onExpandAnimationEnd={onExpandAnimationEnd}
-            onCollapseAnimationEnd={onCollapseAnimationEnd}
-            isDialogShowing={animatingState.phase === 'expanded_dialog_open'}
-          />
-        )}
         
-        {/* Dialog for editing/creating notes. The `open` prop is controlled by `isFormOpen`.
-            The `onOpenChange` prop handles user actions like clicking outside or pressing Esc.
-            When these actions occur, we want to trigger our `handleCloseForm` logic,
-            which includes managing the collapse animation if necessary.
-        */}
         <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) handleCloseForm(); }}>
           <DialogContent 
             ref={dialogContentRef}
             className="sm:max-w-[425px] md:max-w-[600px] max-h-[90vh] flex flex-col"
             onInteractOutside={(e) => {
-              // Prevent closing via overlay click if an animation is in progress that should complete first.
-              // However, for simplicity here, we allow it and handleCloseForm will manage state.
-              // if (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing') {
-              //   e.preventDefault();
-              // }
+              // Allow closing by clicking outside unless an animation is actively running to prevent state issues
+              if (animatingState.phase === 'expanding' || animatingState.phase === 'collapsing') {
+                 e.preventDefault();
+              }
             }}
           >
             <DialogHeader>
@@ -281,11 +266,26 @@ export default function HomePage() {
               <NoteForm
                 initialData={editingNote || undefined}
                 onSubmit={handleSaveNote}
-                onClose={handleCloseForm} // Pass handleCloseForm for explicit cancel
+                onClose={handleCloseForm}
               />
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Render AnimatedNoteOverlay only when its animation is active (expanding/collapsing) or it's in a state related to dialog interaction */}
+        {(animatingState.phase === 'expanding' || animatingState.phase === 'expanded_dialog_open' || animatingState.phase === 'collapsing') && 
+         animatingState.note && animatingState.initialRect && animatingState.targetRect && (
+          <AnimatedNoteOverlay
+            note={animatingState.note}
+            initialRect={animatingState.initialRect}
+            targetRect={animatingState.targetRect}
+            phase={animatingState.phase}
+            onExpandAnimationEnd={onExpandAnimationEnd}
+            onCollapseAnimationEnd={onCollapseAnimationEnd}
+            isDialogShowing={animatingState.phase === 'expanded_dialog_open'}
+          />
+        )}
+
       </main>
       <footer className="text-center py-6 mt-12 border-t">
         <p className="text-sm text-muted-foreground">
@@ -295,3 +295,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
