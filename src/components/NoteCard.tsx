@@ -56,8 +56,13 @@ export function NoteCard({ note, onEdit, onDelete }: NoteCardProps) {
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Excluir anotação">
-              <Trash2 className="h-5 w-5 text-destructive" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Excluir anotação"
+              className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <Trash2 className="h-5 w-5" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
