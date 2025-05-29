@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Note } from '@/lib/types';
 import { getBgColorFromValue } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'; // Assuming Card parts can be used
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface AnimatedNoteOverlayProps {
@@ -14,7 +14,7 @@ interface AnimatedNoteOverlayProps {
   phase: 'expanding' | 'expanded_dialog_open' | 'collapsing';
   onExpandAnimationEnd: () => void;
   onCollapseAnimationEnd: () => void;
-  isDialogShowing: boolean;
+  isDialogShowing: boolean; // Embora não usada diretamente para estilos aqui, é uma boa info
 }
 
 const ANIMATION_DURATION = 900; // ms
@@ -28,7 +28,7 @@ export function AnimatedNoteOverlay({
   phase,
   onExpandAnimationEnd,
   onCollapseAnimationEnd,
-  isDialogShowing,
+  // isDialogShowing, // Não diretamente usada para estilos aqui, mas mantida por clareza
 }: AnimatedNoteOverlayProps) {
   const [currentStyles, setCurrentStyles] = useState<React.CSSProperties>({});
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -39,94 +39,124 @@ export function AnimatedNoteOverlay({
   const borderColor = note.colorTagValue ? getBgColorFromValue(note.colorTagValue) : 'transparent';
 
   useEffect(() => {
+    const baseFixedStyles: React.CSSProperties = {
+        position: 'fixed',
+        zIndex: 50, // Mantém o zIndex consistente
+        overflow: 'hidden', // Ajuda a conter o conteúdo do card
+    };
+
     if (phase === 'expanding' && initialRect && targetRect) {
-      setCurrentStyles({
-        position: 'fixed',
-        top: `${initialRect.top}px`,
-        left: `${initialRect.left}px`,
-        width: `${initialRect.width}px`,
-        height: `${initialRect.height}px`,
-        opacity: 1,
-        zIndex: 50,
-        transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out`,
-      });
+        const expandingInitialStyles: React.CSSProperties = {
+            ...baseFixedStyles,
+            top: `${initialRect.top}px`,
+            left: `${initialRect.left}px`,
+            width: `${initialRect.width}px`,
+            height: `${initialRect.height}px`,
+            opacity: 1,
+            pointerEvents: 'auto', // Interativo durante a animação de expansão
+            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out`,
+        };
+        setCurrentStyles(expandingInitialStyles);
 
-      // Trigger animation to target
-      requestAnimationFrame(() => {
-        setCurrentStyles({
-          position: 'fixed',
-          top: `${targetRect.top}px`,
-          left: `${targetRect.left}px`,
-          width: `${targetRect.width}px`,
-          height: `${targetRect.height}px`,
-          opacity: 1, // Stays opaque during expansion
-          zIndex: 50,
-          transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out`,
+        requestAnimationFrame(() => {
+            setCurrentStyles({
+                ...expandingInitialStyles, // Baseia-se no estado anterior para manter a transição correta
+                top: `${targetRect.top}px`,
+                left: `${targetRect.left}px`,
+                width: `${targetRect.width}px`,
+                height: `${targetRect.height}px`,
+                // opacity permanece 1 durante a movimentação
+            });
         });
-      });
+    } else if (phase === 'expanded_dialog_open' && targetRect) {
+        setCurrentStyles({
+            ...baseFixedStyles,
+            top: `${targetRect.top}px`,
+            left: `${targetRect.left}px`,
+            width: `${targetRect.width}px`,
+            height: `${targetRect.height}px`,
+            opacity: 0,
+            pointerEvents: 'none', // Crucial: torna o overlay não interativo
+            transition: `opacity ${OPACITY_TRANSITION_DURATION}ms ease-in-out`, // Apenas opacidade
+        });
     } else if (phase === 'collapsing' && initialRect && targetRect) {
-       // Start from target (dialog) position, fully opaque
-      setCurrentStyles({
-        position: 'fixed',
-        top: `${targetRect.top}px`,
-        left: `${targetRect.left}px`,
-        width: `${targetRect.width}px`,
-        height: `${targetRect.height}px`,
-        opacity: 1, 
-        zIndex: 50,
-        transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out ${COLLAPSE_OPACITY_DELAY}ms`, // Delay opacity for collapse
-      });
-      
-      // Trigger animation to initial card position and fade out
-      requestAnimationFrame(() => {
-        setCurrentStyles({
-          position: 'fixed',
-          top: `${initialRect.top}px`,
-          left: `${initialRect.left}px`,
-          width: `${initialRect.width}px`,
-          height: `${initialRect.height}px`,
-          opacity: 0, // Fade out as it shrinks
-          zIndex: 50,
-          transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out ${COLLAPSE_OPACITY_DELAY}ms`,
-        });
-      });
-    } else if (phase === 'expanded_dialog_open') {
-        // Hide the overlay when dialog is fully open and overlay has expanded
-        setCurrentStyles(prev => ({...prev, opacity: 0, transition: `opacity ${OPACITY_TRANSITION_DURATION}ms ease-in-out` }));
-    }
+        const collapsingInitialStyles: React.CSSProperties = {
+            ...baseFixedStyles,
+            top: `${targetRect.top}px`,
+            left: `${targetRect.left}px`,
+            width: `${targetRect.width}px`,
+            height: `${targetRect.height}px`,
+            opacity: 1,
+            pointerEvents: 'auto', // Interativo durante a animação de colapso
+            transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out ${COLLAPSE_OPACITY_DELAY}ms`,
+        };
+        setCurrentStyles(collapsingInitialStyles);
 
+        requestAnimationFrame(() => {
+            setCurrentStyles({
+                ...collapsingInitialStyles, // Baseia-se no estado anterior
+                top: `${initialRect.top}px`,
+                left: `${initialRect.left}px`,
+                width: `${initialRect.width}px`,
+                height: `${initialRect.height}px`,
+                opacity: 0,
+                // pointerEvents se tornará efetivamente 'none' ao final devido à opacidade e fim da animação
+            });
+        });
+    } else if (phase === 'idle') {
+        // Garante que está completamente fora do caminho e não interativo
+        setCurrentStyles({ opacity: 0, pointerEvents: 'none', zIndex: -1 });
+    }
   }, [phase, initialRect, targetRect]);
+
 
   useEffect(() => {
     const node = overlayRef.current;
-    if (!node) return;
+    if (!node || !initialRect || !targetRect) return;
 
     const handleTransitionEnd = (event: TransitionEvent) => {
-      // Ensure we're listening to a property that signifies the end of the main animation
-      if (event.propertyName === 'opacity') { 
-        if (phase === 'expanding' && currentStyles.opacity === 1 && currentStyles.top === `${targetRect?.top}px`) { // Added null check for targetRect
-           onExpandAnimationEnd();
-        } else if (phase === 'collapsing' && currentStyles.opacity === 0) {
-          onCollapseAnimationEnd();
+        // Certifique-se de que o evento de transição é do próprio overlayRef e não de um filho.
+        if (event.target !== node) return;
+
+        // Usar uma propriedade que muda durante a transformação principal (ex: 'width' ou 'height')
+        // para detectar o fim da animação de expansão/colapso.
+        // 'opacity' também é importante para a fase de colapso.
+        if (event.propertyName === 'width' || event.propertyName === 'height' || event.propertyName === 'top' || event.propertyName === 'left') {
+            const isAtTarget = currentStyles.top === `${targetRect.top}px` && currentStyles.left === `${targetRect.left}px`;
+            const isAtInitial = currentStyles.top === `${initialRect.top}px` && currentStyles.left === `${initialRect.left}px`;
+
+            if (phase === 'expanding' && isAtTarget) {
+                onExpandAnimationEnd();
+            } else if (phase === 'collapsing' && isAtInitial && currentStyles.opacity === 0) {
+                 // Verifica se a opacidade é 0 ao final do colapso e se está na posição inicial
+                onCollapseAnimationEnd();
+            }
+        } else if (event.propertyName === 'opacity' && phase === 'collapsing') {
+            // Caso a opacidade seja a última a terminar no colapso, e já estejamos na posição inicial.
+            const isAtInitial = currentStyles.top === `${initialRect.top}px` && currentStyles.left === `${initialRect.left}px`;
+            if (isAtInitial && currentStyles.opacity === 0) {
+                onCollapseAnimationEnd();
+            }
         }
-      }
     };
 
     node.addEventListener('transitionend', handleTransitionEnd);
     return () => {
       node.removeEventListener('transitionend', handleTransitionEnd);
     };
-  }, [currentStyles, phase, onExpandAnimationEnd, onCollapseAnimationEnd, targetRect]);
+  }, [currentStyles, phase, onExpandAnimationEnd, onCollapseAnimationEnd, initialRect, targetRect]);
 
 
-  if (phase === 'idle' || (!initialRect && phase !== 'collapsing')) { // Also don't render if initialRect is missing unless collapsing
+  if (phase === 'idle' || (!initialRect && phase !== 'collapsing' && phase !== 'expanded_dialog_open')) {
     return null;
   }
+  // Mesmo que opacity seja 0 em 'expanded_dialog_open', o div ainda precisa existir para a transição de colapso
+  // mas com pointerEvents: 'none', ele não bloqueará interações.
 
   return (
     <div ref={overlayRef} style={currentStyles} className="overflow-hidden">
       <Card 
-        className="flex flex-col h-full w-full shadow-xl" // Ensure it fills the animated div
+        className="flex flex-col h-full w-full shadow-xl"
         style={{ borderLeftWidth: '4px', borderLeftStyle: 'solid', borderLeftColor: borderColor }}
       >
         <CardHeader className="pb-3">
@@ -140,7 +170,6 @@ export function AnimatedNoteOverlay({
             {note.content}
           </p>
         </CardContent>
-        {/* Footer is intentionally omitted for the animated clone to keep it simpler */}
       </Card>
     </div>
   );
