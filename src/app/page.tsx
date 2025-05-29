@@ -60,30 +60,30 @@ export default function HomePage() {
     if (animationPending && isFormOpen && dialogContentRef.current) {
       const actualTargetRect = dialogContentRef.current.getBoundingClientRect();
       
-      const currentNoteFromStorage = notesFromStorage.find(n => n.id === animationPending.noteToEdit.id);
-      const noteForFormAndAnimation = currentNoteFromStorage || animationPending.noteToEdit;
+      // animationPending.noteToEdit já deve ser a nota mais recente no momento do clique
+      const noteForAnimationAndForm = animationPending.noteToEdit;
 
       setAnimatingState({
-        note: noteForFormAndAnimation,
+        note: noteForAnimationAndForm,
         initialRect: animationPending.cardRect,
         targetRect: actualTargetRect,
         phase: 'expanding',
       });
-      setEditingNote(noteForFormAndAnimation); 
+      setEditingNote(noteForAnimationAndForm); 
       setAnimationPending(null); 
     }
-  }, [animationPending, isFormOpen, notesFromStorage]);
+  }, [animationPending, isFormOpen]); // Removido notesFromStorage daqui
 
 
   const handleOpenForm = useCallback((noteToEditParam?: Note | null, cardRect?: DOMRect) => {
     if (noteToEditParam && cardRect) { // Editing existing note with animation
-      // Ensure we use the absolute latest version from storage for editing
+      // Garante que estamos usando a versão mais recente do storage para edição
       const freshNoteToEdit = notesFromStorage.find(n => n.id === noteToEditParam.id) || noteToEditParam;
-      setEditingNote(freshNoteToEdit); // Set editingNote immediately for the form
+      setEditingNote(freshNoteToEdit); 
       setAnimationPending({ noteToEdit: freshNoteToEdit, cardRect });
       setIsFormOpen(true); 
     } else { // New note or no cardRect (fallback, e.g. "Nova Anotação" button)
-      setEditingNote(noteToEditParam || null); // If noteToEditParam is provided without cardRect, use it. Otherwise, new note.
+      setEditingNote(noteToEditParam || null); 
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' }); 
       setIsFormOpen(true);
     }
@@ -174,7 +174,7 @@ export default function HomePage() {
     
     if (editingNote && noteToAnimate && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
         setIsFormOpen(false); 
-        const finalNoteForAnimation = noteToAnimate; // Use the most recently updated note data
+        const finalNoteForAnimation = noteToAnimate; 
          setAnimatingState(prev => ({
             ...prev,
             note: finalNoteForAnimation, 
@@ -310,6 +310,8 @@ export default function HomePage() {
     </div>
   );
 }
+    
+
     
 
     
