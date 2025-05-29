@@ -56,12 +56,10 @@ export default function HomePage() {
   const currentNotes = isClient ? notesFromStorage : [];
   const sortedNotes = [...currentNotes].sort((a, b) => b.updatedAt - a.updatedAt);
 
-  // Effect to handle starting expansion animation *after* dialog is open and measurable
   useEffect(() => {
     if (animationPending && isFormOpen && dialogContentRef.current) {
       const actualTargetRect = dialogContentRef.current.getBoundingClientRect();
       
-      // Ensure we use the absolute latest version of the note from storage for the form and animation
       const currentNoteFromStorage = notesFromStorage.find(n => n.id === animationPending.noteToEdit.id);
       const noteForFormAndAnimation = currentNoteFromStorage || animationPending.noteToEdit;
 
@@ -71,22 +69,25 @@ export default function HomePage() {
         targetRect: actualTargetRect,
         phase: 'expanding',
       });
-      setEditingNote(noteForFormAndAnimation); // Ensure editingNote is set with the latest data
-      setAnimationPending(null); // Clear pending state
+      setEditingNote(noteForFormAndAnimation); 
+      setAnimationPending(null); 
     }
-  }, [animationPending, isFormOpen, notesFromStorage]); // Added notesFromStorage
+  }, [animationPending, isFormOpen, notesFromStorage]);
 
 
-  const handleOpenForm = useCallback((noteToEdit?: Note | null, cardRect?: DOMRect) => {
-    if (noteToEdit && cardRect) { // Editing existing note with animation
-      setAnimationPending({ noteToEdit, cardRect });
+  const handleOpenForm = useCallback((noteToEditParam?: Note | null, cardRect?: DOMRect) => {
+    if (noteToEditParam && cardRect) { // Editing existing note with animation
+      // Ensure we use the absolute latest version from storage for editing
+      const freshNoteToEdit = notesFromStorage.find(n => n.id === noteToEditParam.id) || noteToEditParam;
+      setEditingNote(freshNoteToEdit); // Set editingNote immediately for the form
+      setAnimationPending({ noteToEdit: freshNoteToEdit, cardRect });
       setIsFormOpen(true); 
     } else { // New note or no cardRect (fallback, e.g. "Nova Anotação" button)
-      setEditingNote(noteToEdit || null);
+      setEditingNote(noteToEditParam || null); // If noteToEditParam is provided without cardRect, use it. Otherwise, new note.
       setAnimatingState({ note: null, initialRect: null, targetRect: null, phase: 'idle' }); 
       setIsFormOpen(true);
     }
-  }, []); // Keep empty deps for now as it primarily sets state
+  }, [notesFromStorage]);
 
 
   const handleCloseForm = useCallback(() => {
@@ -171,9 +172,9 @@ export default function HomePage() {
       }
     }
     
-    if (editingNote && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
+    if (editingNote && noteToAnimate && animatingState.phase === 'expanded_dialog_open' && animatingState.initialRect && animatingState.targetRect) {
         setIsFormOpen(false); 
-        const finalNoteForAnimation = noteToAnimate || editingNote;
+        const finalNoteForAnimation = noteToAnimate; // Use the most recently updated note data
          setAnimatingState(prev => ({
             ...prev,
             note: finalNoteForAnimation, 
@@ -278,6 +279,7 @@ export default function HomePage() {
             </DialogHeader>
             <div className="overflow-y-auto py-4 pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
               <NoteForm
+                key={editingNote ? editingNote.id : 'new-note-form'}
                 initialData={editingNote || undefined}
                 onSubmit={handleSaveNote}
                 onClose={handleCloseForm}
@@ -308,6 +310,8 @@ export default function HomePage() {
     </div>
   );
 }
+    
+
     
 
     
