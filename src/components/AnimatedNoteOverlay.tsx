@@ -17,6 +17,10 @@ interface AnimatedNoteOverlayProps {
   isDialogShowing: boolean;
 }
 
+const ANIMATION_DURATION = 500; // ms
+const OPACITY_TRANSITION_DURATION = Math.floor(ANIMATION_DURATION / 2); // ms
+const COLLAPSE_OPACITY_DELAY = Math.floor(ANIMATION_DURATION / 2); // ms
+
 export function AnimatedNoteOverlay({
   note,
   initialRect,
@@ -44,7 +48,7 @@ export function AnimatedNoteOverlay({
         height: `${initialRect.height}px`,
         opacity: 1,
         zIndex: 50,
-        transition: 'top 300ms ease-in-out, left 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, opacity 300ms ease-in-out',
+        transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out`,
       });
 
       // Trigger animation to target
@@ -57,7 +61,7 @@ export function AnimatedNoteOverlay({
           height: `${targetRect.height}px`,
           opacity: 1, // Stays opaque during expansion
           zIndex: 50,
-          transition: 'top 300ms ease-in-out, left 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, opacity 300ms ease-in-out',
+          transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out`,
         });
       });
     } else if (phase === 'collapsing' && initialRect && targetRect) {
@@ -70,7 +74,7 @@ export function AnimatedNoteOverlay({
         height: `${targetRect.height}px`,
         opacity: 1, 
         zIndex: 50,
-        transition: 'top 300ms ease-in-out, left 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, opacity 300ms ease-in-out 150ms', // Delay opacity for collapse
+        transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out ${COLLAPSE_OPACITY_DELAY}ms`, // Delay opacity for collapse
       });
       
       // Trigger animation to initial card position and fade out
@@ -83,12 +87,12 @@ export function AnimatedNoteOverlay({
           height: `${initialRect.height}px`,
           opacity: 0, // Fade out as it shrinks
           zIndex: 50,
-          transition: 'top 300ms ease-in-out, left 300ms ease-in-out, width 300ms ease-in-out, height 300ms ease-in-out, opacity 300ms ease-in-out 150ms',
+          transition: `top ${ANIMATION_DURATION}ms ease-in-out, left ${ANIMATION_DURATION}ms ease-in-out, width ${ANIMATION_DURATION}ms ease-in-out, height ${ANIMATION_DURATION}ms ease-in-out, opacity ${ANIMATION_DURATION}ms ease-in-out ${COLLAPSE_OPACITY_DELAY}ms`,
         });
       });
     } else if (phase === 'expanded_dialog_open') {
         // Hide the overlay when dialog is fully open and overlay has expanded
-        setCurrentStyles(prev => ({...prev, opacity: 0, transition: 'opacity 150ms ease-in-out' }));
+        setCurrentStyles(prev => ({...prev, opacity: 0, transition: `opacity ${OPACITY_TRANSITION_DURATION}ms ease-in-out` }));
     }
 
   }, [phase, initialRect, targetRect]);
